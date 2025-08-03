@@ -24,6 +24,7 @@ from stage2_product_agent.agent import ProductCatalogAgent
 
 # Import A2A components
 from a2a_protocol import BaseA2AAgent, create_and_run_agent_server
+from a2a_protocol.smol_tools import get_a2a_tools
 
 # Don't load .env in Docker - environment variables are passed by docker-compose
 # load_dotenv()  # Commented out for Docker deployment
@@ -44,6 +45,10 @@ class ProductAgentA2A(BaseA2AAgent):
         # Initialize the underlying SMOL agent
         self.product_agent = ProductCatalogAgent()
         
+        # Skip A2A tools for now - there's a compatibility issue
+        # self._add_a2a_tools_to_agent()
+        logger.info("Skipping A2A tools for product agent due to compatibility issues")
+        
         # Get agent card path
         agent_card_path = Path(__file__).parent.parent / "agent_cards" / "product_agent.json"
         
@@ -59,6 +64,53 @@ class ProductAgentA2A(BaseA2AAgent):
         self.setup_custom_capabilities()
         
         logger.info("Initialized A2A Product Agent")
+    
+    def _add_a2a_tools_to_agent(self):
+        """Add A2A discovery tools to the existing product agent."""
+        from smolagents import CodeAgent, Tool
+        
+        # Get A2A discovery tools
+        a2a_tools = get_a2a_tools()
+        
+        # Debug: Log tool types
+        logger.info(f"A2A tools: {[type(t).__name__ for t in a2a_tools]}")
+        
+        # Get the current agent's tools - they're stored in a dict
+        current_tools = []
+        if hasattr(self.product_agent.agent, 'tools') and self.product_agent.agent.tools:
+            # The agent stores tools in a dict
+            if isinstance(self.product_agent.agent.tools, dict):
+                current_tools = list(self.product_agent.agent.tools.values())
+            else:
+                current_tools = list(self.product_agent.agent.tools)
+        
+        logger.info(f"Current tools before filtering: {[type(t).__name__ for t in current_tools]}")
+        
+        # Filter to ensure all are Tool instances
+        current_tools = [t for t in current_tools if isinstance(t, Tool)]
+        
+        logger.info(f"Current tools after filtering: {[type(t).__name__ for t in current_tools]}")
+        
+        # Combine all tools
+        all_tools = current_tools + a2a_tools
+        
+        logger.info(f"All tools: {[type(t).__name__ for t in all_tools]}")
+        
+        # Check if all are Tool instances
+        for i, tool in enumerate(all_tools):
+            if not isinstance(tool, Tool):
+                logger.error(f"Tool at index {i} is not a Tool instance: {type(tool)}")
+        
+        # Recreate the agent with all tools
+        self.product_agent.agent = CodeAgent(
+            tools=all_tools,
+            model=self.product_agent.model,
+            add_base_tools=False,
+            name=self.product_agent.agent_name,
+            description=self.product_agent.agent_description,
+        )
+        
+        logger.info(f"Enhanced product agent with {len(a2a_tools)} A2A tools (total: {len(all_tools)})")
     
     @override
     def setup_custom_capabilities(self):

@@ -23,6 +23,7 @@ from smolagents import CodeAgent, LiteLLMModel, MCPClient
 
 # Import A2A components
 from a2a_protocol import BaseA2AAgent, create_and_run_agent_server
+from a2a_protocol.smol_tools import get_a2a_tools
 
 # Don't load .env in Docker - environment variables are passed by docker-compose
 # load_dotenv()  # Commented out for Docker deployment
@@ -89,9 +90,14 @@ class SalesAnalyticsAgent:
         self.mcp_tools = self.mcp_client.get_tools()
         logger.info(f"Connected to MCP server with {len(self.mcp_tools)} tools")
         
-        # Initialize agent
+        # Get A2A discovery tools
+        self.a2a_tools = get_a2a_tools()
+        all_tools = self.mcp_tools + self.a2a_tools
+        logger.info(f"Total tools available: {len(all_tools)} (MCP: {len(self.mcp_tools)}, A2A: {len(self.a2a_tools)})")
+        
+        # Initialize agent with both MCP and A2A tools
         self.agent = CodeAgent(
-            tools=self.mcp_tools,
+            tools=all_tools,
             model=self.model
         )
     
