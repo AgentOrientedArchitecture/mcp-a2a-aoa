@@ -1,0 +1,1 @@
+"""SMOL Agent tools for product catalog interaction."""

@@ -1,0 +1,1 @@
+"""Stage 2: Product Agent - SMOL Agents implementation for intelligent product catalog interaction."""

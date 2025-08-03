@@ -1,0 +1,53 @@
+services:
+  product-agent:
+    build:
+      context: ..
+      dockerfile: stage2_product_agent/Dockerfile
+    container_name: product-catalog-agent
+    
+    # Environment variables
+    environment:
+      - AGENT_NAME=${AGENT_NAME:-ProductCatalogAssistant}
+      - AGENT_DESCRIPTION=${AGENT_DESCRIPTION:-An intelligent assistant for product catalog queries and recommendations}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MCP_SERVER_PATH=/app/stage1_mcp_product_server/server_fastmcp.py
+      - PYTHONUNBUFFERED=1
+      
+    # API keys should be provided via .env file
+    env_file:
+      - .env
+    
+    # For interactive mode
+    stdin_open: true
+    tty: true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Volumes for persistence (optional)
+    volumes:
+      - agent-data:/app/data
+    
+    # Network
+    networks:
+      - agent-network
+
+# Volumes
+volumes:
+  agent-data:
+    driver: local
+
+# Networks
+networks:
+  agent-network:
+    driver: bridge

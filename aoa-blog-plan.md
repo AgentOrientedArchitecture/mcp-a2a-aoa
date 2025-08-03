@@ -5,7 +5,7 @@ A hands-on technical blog series demonstrating the evolution from simple data ac
 
 **Target Audience**: Senior technical decision makers who need to understand the practical implementation of agent architectures
 **Working Directory**: `/home/lewis/work/AOA`
-**Tech Stack**: Python 3.12, HuggingFace smolagents, MCP SDK, ACP SDK, A2A SDK, Context7
+**Tech Stack**: Python 3.12, HuggingFace smolagents, MCP SDK, A2A SDK, Context7
 
 ## Blog Structure & Stages
 
@@ -62,72 +62,74 @@ A hands-on technical blog series demonstrating the evolution from simple data ac
 - `product_catalog_agent/` directory
 - Agent test scenarios
 
-### Stage 3: Multi-Domain Intelligence - ACP Integration
-**Goal**: Coordinate multiple agents across inventory and sales domains
+### Stage 3: Agent Discovery - A2A Protocol
+**Goal**: Enable agents to discover and collaborate through Agent Cards
 
 #### Technical Implementation
-1. **New Data Sources**
-   - Inventory database (stock levels, warehouse locations, reorder points)
-   - Sales/Returns database (transactions, return reasons, timestamps)
-   - Create MCP servers for each
-
-2. **New SMOL Agents**
-   - InventoryAgent: Stock management and predictions
-   - SalesAnalyticsAgent: Sales patterns and return analysis
-
-3. **ACP Integration**
-   - Decorate agents with ACP SDK
-   - Implement cross-agent communication
-   - Query routing and result aggregation
-
-4. **Blog Content**
-   - The need for agent coordination
-   - ACP architecture patterns
-   - Cross-domain query examples
-   - Performance considerations
-
-**Deliverables**:
-- `stage3_acp_coordination.md`
-- `inventory_mcp/`, `sales_mcp/` directories
-- `acp_integration/` with decorated agents
-- Multi-agent query examples
-
-### Stage 4: Agent Discovery - A2A Protocol
-**Goal**: Enable dynamic agent discovery and collaboration
-
-#### Technical Implementation
-1. **CRM Integration**
-   - Customer database (profiles, support tickets, loyalty status)
-   - CRM MCP server
-   - CustomerInsightsAgent
+1. **Multi-Domain Setup**
+   - Keep existing inventory database and MCP server
+   - Keep existing sales/returns database and MCP server
+   - Adapt existing InventoryAgent and SalesAnalyticsAgent (remove ACP decorators)
 
 2. **A2A Implementation**
-   - Generate Agent Cards for all existing agents
-   - Implement agent registry
-   - Discovery mechanisms
-   - Dynamic capability negotiation
+   - Generate Agent Cards for all three agents (Product, Inventory, Sales)
+   - Implement A2A protocol endpoints for each agent
+   - Enable direct agent-to-agent communication
+   - Demonstrate capability discovery and negotiation
 
 3. **Blog Content**
-   - A2A vs UDDI: Learning from history
+   - Introduction to A2A protocol
    - Agent Cards as intelligent business cards
-   - Discovery patterns and best practices
-   - Security considerations
+   - Direct agent communication patterns
+   - Comparison to UDDI: lessons learned
 
 **Deliverables**:
-- `stage4_a2a_discovery.md`
+- `stage3_a2a_discovery.md`
+- `inventory_mcp/`, `sales_mcp/` directories (existing)
+- `agent_cards/` with cards for all three agents
+- A2A protocol implementation for each agent
+
+### Stage 4: Agent Registry - AOA Foundation
+**Goal**: Introduce dynamic agent discovery and the AOA vision
+
+#### Technical Implementation
+1. **Agent Registry Service**
+   - Create centralized registry for agent discovery
+   - Implement agent registration endpoints
+   - Search and filtering capabilities
+   - Health checking and availability monitoring
+
+2. **CRM Integration**
+   - Customer database (profiles, support tickets, loyalty status)
+   - CRM MCP server
+   - CustomerInsightsAgent with A2A capabilities
+
+3. **Orchestrator Introduction**
+   - Basic orchestrator that discovers agents via registry
+   - Dynamic capability matching
+   - Multi-agent query planning
+
+4. **Blog Content**
+   - From static to dynamic agent discovery
+   - Registry architecture and implementation
+   - Introduction to Agent Oriented Architecture
+   - Orchestration patterns
+
+**Deliverables**:
+- `stage4_aoa_foundation.md`
+- `agent_registry/` with registry service
 - `crm_mcp/`, `customer_agent/` directories
-- `a2a_registry/` with agent cards
-- Discovery demonstration code
+- `orchestrator/` with basic implementation
 
 ### Stage 5: Agent Oriented Architecture - The Complete System
 **Goal**: Showcase emergent capabilities through dynamic agent discovery
 
 #### Technical Implementation
-1. **AOA Orchestrator**
-   - Master orchestrator agent
+1. **Advanced Orchestrator**
+   - Enhanced orchestrator with sophisticated planning
    - Dynamic capability discovery
-   - Query planning across domains
-   - Result synthesis
+   - Query optimization across domains
+   - Result synthesis and formatting
 
 2. **Specialized Agents**
    - ReportingAgent: Generate formatted reports
@@ -149,7 +151,7 @@ A hands-on technical blog series demonstrating the evolution from simple data ac
 
 **Deliverables**:
 - `stage5_aoa_complete.md`
-- `aoa_orchestrator/` directory
+- `aoa_orchestrator/` directory (enhanced)
 - `specialized_agents/` directory
 - Complete system demonstration
 

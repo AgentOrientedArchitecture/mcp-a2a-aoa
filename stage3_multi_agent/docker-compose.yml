@@ -1,0 +1,155 @@
+services:
+  # Product Agent with A2A
+  product-agent:
+    build:
+      context: ..
+      dockerfile: stage3_multi_agent/product.Dockerfile
+    container_name: product-agent
+    env_file:
+      - .env
+    environment:
+      - DOCKER_CONTAINER=true
+      - PRODUCT_AGENT_NAME=${PRODUCT_AGENT_NAME:-ProductCatalogAssistant}
+      - PRODUCT_AGENT_PORT=${PRODUCT_AGENT_PORT:-8001}
+      - A2A_HOST=${A2A_HOST:-0.0.0.0}
+      - LLM_MODEL=${LLM_MODEL:-claude-3-5-haiku-20241022}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MCP_SERVER_PATH=/app/stage1_mcp_product_server/server_fastmcp.py
+      - PYTHONUNBUFFERED=1
+      # Discovery configuration for Docker
+      - DISCOVERY_METHOD=docker
+      - DISCOVERY_HOSTS=inventory-agent:8002,sales-agent:8003
+    volumes:
+      - ../stage1_mcp_product_server/product_catalog.db:/app/stage1_mcp_product_server/product_catalog.db:ro
+    networks:
+      - agent-network
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/.well-known/agent-card.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Inventory Agent with A2A
+  inventory-agent:
+    build:
+      context: ..
+      dockerfile: stage3_multi_agent/inventory.Dockerfile
+    container_name: inventory-agent
+    env_file:
+      - .env
+    environment:
+      - DOCKER_CONTAINER=true
+      - INVENTORY_AGENT_NAME=${INVENTORY_AGENT_NAME:-InventoryManager}
+      - INVENTORY_AGENT_PORT=${INVENTORY_AGENT_PORT:-8002}
+      - A2A_HOST=${A2A_HOST:-0.0.0.0}
+      - LLM_MODEL=${LLM_MODEL:-claude-3-5-haiku-20241022}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - INVENTORY_MCP_PATH=/app/stage3_multi_agent/inventory_mcp/server.py
+      - SALES_MCP_PATH=/app/stage3_multi_agent/sales_mcp/server.py
+      - PYTHONUNBUFFERED=1
+      # Discovery configuration for Docker
+      - DISCOVERY_METHOD=docker
+      - DISCOVERY_HOSTS=product-agent:8001,sales-agent:8003
+    volumes:
+      - ./inventory_mcp/inventory.db:/app/stage3_multi_agent/inventory_mcp/inventory.db
+      - ./sales_mcp/sales.db:/app/stage3_multi_agent/sales_mcp/sales.db:ro
+    networks:
+      - agent-network
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/.well-known/agent-card.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Sales Agent with A2A
+  sales-agent:
+    build:
+      context: ..
+      dockerfile: stage3_multi_agent/sales.Dockerfile
+    container_name: sales-agent
+    env_file:
+      - .env
+    environment:
+      - DOCKER_CONTAINER=true
+      - SALES_AGENT_NAME=${SALES_AGENT_NAME:-SalesAnalytics}
+      - SALES_AGENT_PORT=${SALES_AGENT_PORT:-8003}
+      - A2A_HOST=${A2A_HOST:-0.0.0.0}
+      - LLM_MODEL=${LLM_MODEL:-claude-3-5-haiku-20241022}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SALES_MCP_PATH=/app/stage3_multi_agent/sales_mcp/server.py
+      - INVENTORY_MCP_PATH=/app/stage3_multi_agent/inventory_mcp/server.py
+      - PYTHONUNBUFFERED=1
+      # Discovery configuration for Docker
+      - DISCOVERY_METHOD=docker
+      - DISCOVERY_HOSTS=product-agent:8001,inventory-agent:8002
+    volumes:
+      - ./sales_mcp/sales.db:/app/stage3_multi_agent/sales_mcp/sales.db
+      - ./inventory_mcp/inventory.db:/app/stage3_multi_agent/inventory_mcp/inventory.db:ro
+    networks:
+      - agent-network
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/.well-known/agent-card.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Demo runner (optional)
+  demo:
+    build:
+      context: ..
+      dockerfile: stage3_multi_agent/demo.Dockerfile
+    container_name: a2a-demo
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DISCOVERY_HOSTS=product-agent:8001,inventory-agent:8002,sales-agent:8003
+    networks:
+      - agent-network
+    depends_on:
+      product-agent:
+        condition: service_healthy
+      inventory-agent:
+        condition: service_healthy
+      sales-agent:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    profiles:
+      - demo
+
+# Networks
+networks:
+  agent-network:
+    driver: bridge
+
+# Volumes for persistence
+volumes:
+  product-data:
+  inventory-data:
+  sales-data:

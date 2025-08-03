@@ -1,0 +1,161 @@
+{
+  "name": "Sales Analytics Agent",
+  "description": "Intelligent sales analytics with predictive insights and customer behavior analysis",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "name": "sales_summary",
+      "description": "Get sales summary for a specific time period",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "description": "Time period (today, week, month, quarter)",
+            "enum": ["today", "week", "month", "quarter"],
+            "default": "month"
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "total_revenue": {"type": "number"},
+          "transaction_count": {"type": "integer"},
+          "average_order_value": {"type": "number"},
+          "top_products": {"type": "array"}
+        }
+      }
+    },
+    {
+      "name": "analyze_returns",
+      "description": "Analyze product return patterns and reasons",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "description": "Optional specific product to analyze"
+          },
+          "days": {
+            "type": "integer",
+            "description": "Number of days to analyze",
+            "default": 30
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "return_rate": {"type": "number"},
+          "top_return_reasons": {"type": "array"},
+          "recommendations": {"type": "array"}
+        }
+      }
+    },
+    {
+      "name": "customer_insights",
+      "description": "Get insights about customer behavior and segments",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "segment": {
+            "type": "string",
+            "description": "Optional customer segment to analyze"
+          }
+        }
+      }
+    },
+    {
+      "name": "sales_forecast",
+      "description": "Forecast sales for upcoming periods",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "days_ahead": {
+            "type": "integer",
+            "description": "Number of days to forecast",
+            "default": 30
+          },
+          "product_id": {
+            "type": "integer",
+            "description": "Optional specific product to forecast"
+          }
+        }
+      }
+    },
+    {
+      "name": "trending_products",
+      "description": "Identify trending products based on sales velocity",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "description": "Number of days to analyze",
+            "default": 7
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of products to return",
+            "default": 10
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "trending_products": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {"type": "integer"},
+                "sales_velocity": {"type": "number"},
+                "growth_rate": {"type": "number"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "revenue_analysis",
+      "description": "Analyze revenue by category, time period, or customer segment",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "group_by": {
+            "type": "string",
+            "description": "Grouping dimension",
+            "enum": ["category", "day", "week", "month", "customer_segment"]
+          }
+        }
+      }
+    }
+  ],
+  "endpoints": {
+    "http": "http://localhost:8003/agent",
+    "websocket": "ws://localhost:8003/ws"
+  },
+  "supported_protocols": ["a2a/1.0"],
+  "authentication": {
+    "type": "none",
+    "description": "No authentication required for demo"
+  },
+  "metadata": {
+    "domain": "sales_analytics",
+    "mcp_tools": [
+      "get_sales_summary",
+      "get_top_products",
+      "analyze_returns", 
+      "get_revenue_by_category",
+      "get_customer_insights",
+      "get_sales_forecast",
+      "get_trending_products"
+    ],
+    "smol_agent": true,
+    "cross_domain_access": ["inventory"],
+    "data_source": "SQLite sales database"
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "name": "Product Catalog Agent",
+  "description": "Intelligent product search, analysis, and recommendations powered by natural language understanding",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "name": "search_products",
+      "description": "Search for products using natural language queries",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural language search query"
+          },
+          "filters": {
+            "type": "object",
+            "description": "Optional filters (category, price range, etc.)",
+            "properties": {
+              "category": {"type": "string"},
+              "min_price": {"type": "number"},
+              "max_price": {"type": "number"},
+              "in_stock": {"type": "boolean"}
+            }
+          }
+        },
+        "required": ["query"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "count": {"type": "integer"},
+          "query_interpretation": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "analyze_prices",
+      "description": "Analyze price trends and identify outliers",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Product category to analyze"
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "average_price": {"type": "number"},
+          "price_range": {"type": "object"},
+          "outliers": {"type": "array"},
+          "trends": {"type": "object"}
+        }
+      }
+    },
+    {
+      "name": "find_similar_products",
+      "description": "Find products similar to a given product",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "description": "ID of the reference product"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of similar products",
+            "default": 5
+          }
+        },
+        "required": ["product_id"]
+      }
+    },
+    {
+      "name": "generate_recommendations",
+      "description": "Generate personalized product recommendations",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "preferences": {
+            "type": "object",
+            "description": "User preferences"
+          },
+          "budget": {
+            "type": "number",
+            "description": "Budget constraint"
+          }
+        }
+      }
+    }
+  ],
+  "endpoints": {
+    "http": "http://localhost:8001/agent",
+    "websocket": "ws://localhost:8001/ws"
+  },
+  "supported_protocols": ["a2a/1.0"],
+  "authentication": {
+    "type": "none",
+    "description": "No authentication required for demo"
+  },
+  "metadata": {
+    "domain": "product_catalog",
+    "mcp_tools": [
+      "get_schema",
+      "query_products", 
+      "search_products",
+      "get_product_by_id",
+      "get_categories",
+      "get_price_range"
+    ],
+    "smol_agent": true,
+    "data_source": "SQLite product catalog database"
+  }
+}

@@ -1,0 +1,39 @@
+# Ignore environment files
+**/.env
+**/.env.*
+.env
+.env.*
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore test files
+**/tests/
+**/test_*.py
+
+# Ignore documentation
+*.md
+docs/
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore logs
+*.log
+logs/
+
+# Ignore temporary files
+*.tmp
+*.temp

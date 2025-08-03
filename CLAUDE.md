@@ -1,7 +1,7 @@
 # Agent Oriented Architecture (AOA) Project
 
 ## Project Overview
-This project demonstrates the evolution from simple data access through MCP to a complete Agent Oriented Architecture, showcasing practical implementations of MCP, ACP, A2A protocols, and emergent agent systems.
+This project demonstrates the evolution from simple data access through MCP to a complete Agent Oriented Architecture, showcasing practical implementations of MCP, A2A protocols, and emergent agent systems.
 
 ## Environment & Tools
 - **Python**: 3.12
@@ -9,6 +9,8 @@ This project demonstrates the evolution from simple data access through MCP to a
 - **MCP Server**: Context7 enabled for real-time documentation
 - **Container**: Docker for agent deployment (from Stage 2 onwards)
 - **Working Directory**: `/home/lewis/work/AOA`
+- **Default LLM Model**: claude-3-7-sonnet-20250219
+- **Default LLM Model**: claude-3-7-sonnet-20250219
 
 ## Development Philosophy
 - **Use existing frameworks and SDKs** - Never reinvent the wheel
@@ -35,11 +37,11 @@ uv add mcp sqlite3
 # Stage 2: SMOL Agents
 uv add "smolagents[all]"
 
-# Stage 3: ACP Integration
-uv add acp-sdk
-
-# Stage 4: A2A Discovery
+# Stage 3: A2A Protocol
 uv add a2a-sdk
+
+# Stage 4: AOA Foundation
+# A2A SDK already added in Stage 3
 
 # Development tools
 uv add --dev pytest pytest-asyncio ruff black mypy
@@ -66,13 +68,14 @@ uv add --dev pytest pytest-asyncio ruff black mypy
 ├── stage3_multi_agent/
 │   ├── inventory_mcp/
 │   ├── sales_mcp/
-│   ├── acp_integration/
+│   ├── agents/
+│   ├── agent_cards/
 │   ├── docker-compose.yml
 │   └── tests/
 ├── stage4_a2a_discovery/
 │   ├── crm_mcp/
-│   ├── a2a_registry/
-│   ├── agent_cards/
+│   ├── agent_registry/
+│   ├── orchestrator/
 │   └── tests/
 ├── stage5_aoa_complete/
 │   ├── orchestrator/
@@ -82,8 +85,8 @@ uv add --dev pytest pytest-asyncio ruff black mypy
 └── blog_posts/
     ├── stage1_mcp_foundation.md
     ├── stage2_smol_agents.md
-    ├── stage3_acp_coordination.md
-    ├── stage4_a2a_discovery.md
+    ├── stage3_a2a_discovery.md
+    ├── stage4_aoa_foundation.md
     └── stage5_aoa_complete.md
 ```
 

@@ -1,0 +1,138 @@
+{
+  "name": "Inventory Management Agent",
+  "description": "Intelligent inventory management with predictive analytics and optimization capabilities",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "name": "check_stock",
+      "description": "Check stock levels for products across warehouses",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "description": "Product ID to check"
+          },
+          "warehouse_id": {
+            "type": "integer",
+            "description": "Optional specific warehouse ID"
+          }
+        },
+        "required": ["product_id"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "stock_levels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "warehouse_id": {"type": "integer"},
+                "warehouse_name": {"type": "string"},
+                "quantity": {"type": "integer"},
+                "status": {"type": "string"}
+              }
+            }
+          },
+          "total_stock": {"type": "integer"}
+        }
+      }
+    },
+    {
+      "name": "optimize_restocking",
+      "description": "Generate intelligent restocking recommendations",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "warehouse_id": {
+            "type": "integer",
+            "description": "Optional warehouse to focus on"
+          },
+          "urgency_threshold": {
+            "type": "integer",
+            "description": "Days threshold for urgent items",
+            "default": 7
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "urgent_reorders": {"type": "array"},
+          "standard_reorders": {"type": "array"},
+          "analysis_timestamp": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "predict_stockouts",
+      "description": "Predict potential stockouts using ML analysis",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "days_ahead": {
+            "type": "integer",
+            "description": "Number of days to predict ahead",
+            "default": 14
+          }
+        }
+      }
+    },
+    {
+      "name": "warehouse_optimization",
+      "description": "Analyze and optimize warehouse space utilization",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "target_utilization": {
+            "type": "number",
+            "description": "Target utilization percentage",
+            "default": 85
+          }
+        }
+      }
+    },
+    {
+      "name": "inventory_health_check",
+      "description": "Comprehensive health check of inventory system",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "health_score": {"type": "integer"},
+          "status": {"type": "string"},
+          "issues": {"type": "array"}
+        }
+      }
+    }
+  ],
+  "endpoints": {
+    "http": "http://localhost:8002/agent",
+    "websocket": "ws://localhost:8002/ws"
+  },
+  "supported_protocols": ["a2a/1.0"],
+  "authentication": {
+    "type": "none",
+    "description": "No authentication required for demo"
+  },
+  "metadata": {
+    "domain": "inventory_management",
+    "mcp_tools": [
+      "check_stock",
+      "get_inventory_summary",
+      "get_low_stock_alerts",
+      "predict_stockouts",
+      "get_warehouse_info",
+      "get_reorder_suggestions",
+      "update_stock",
+      "transfer_stock"
+    ],
+    "smol_agent": true,
+    "cross_domain_access": ["sales"],
+    "data_source": "SQLite inventory database"
+  }
+}
