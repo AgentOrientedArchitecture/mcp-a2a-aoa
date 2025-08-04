@@ -1,45 +1,48 @@
+# Enhanced Product Agent Dockerfile with Telemetry
 FROM python:3.12-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-# Install uv
-RUN pip install uv
 
 # Set working directory
 WORKDIR /app
 
-# Copy project files
+# Copy requirements and install Python dependencies
 COPY pyproject.toml uv.lock ./
+RUN pip install uv && uv pip install --system .
 
-# Copy necessary code
-COPY stage1_mcp_product_server/ ./stage1_mcp_product_server/
-COPY stage2_product_agent/ ./stage2_product_agent/
-COPY stage3_multi_agent/agents/ ./stage3_multi_agent/agents/
-COPY stage3_multi_agent/a2a_protocol/ ./stage3_multi_agent/a2a_protocol/
-COPY stage3_multi_agent/agent_cards/ ./stage3_multi_agent/agent_cards/
+# Install telemetry-specific dependencies
+RUN uv pip install --system \
+    arize-phoenix-otel \
+    openinference-instrumentation-smolagents \
+    openinference-instrumentation-openai \
+    openinference-instrumentation-anthropic \
+    psutil
 
-# Install dependencies from pyproject.toml
-RUN uv pip compile pyproject.toml -o requirements.txt && \
-    uv pip install --system -r requirements.txt
+# Copy application code
+COPY . .
 
-# Set environment variables
-ENV PYTHONPATH=/app
-ENV PRODUCT_AGENT_PORT=8001
-ENV A2A_HOST=0.0.0.0
+# Set environment variables for telemetry
+ENV ENABLE_TELEMETRY=true
+ENV PHOENIX_PROJECT_NAME=a2a-multi-agent
 
-# For Docker networking, we'll use the service name
-ENV DISCOVERY_METHOD=docker
+# Create telemetry initialization script
+RUN echo '#!/bin/bash\n\
+if [ "$ENABLE_TELEMETRY" = "true" ]; then\n\
+    echo "Initializing OpenTelemetry with Phoenix..."\n\
+    export PHOENIX_COLLECTOR_ENDPOINT=${PHOENIX_COLLECTOR_ENDPOINT:-http://phoenix:4317}\n\
+fi\n\
+exec python stage3_multi_agent/agents/product_agent.py\n\
+' > /app/start.sh && chmod +x /app/start.sh
 
 # Expose port
 EXPOSE 8001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8001/health || exit 1
+    CMD curl -f http://localhost:8001/.well-known/agent-card.json || exit 1
 
-# Run the A2A agent
-CMD ["python", "stage3_multi_agent/agents/product_agent_a2a.py"]
+# Start the agent
+CMD ["/app/start.sh"] 

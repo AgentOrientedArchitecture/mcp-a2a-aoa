@@ -1,13 +1,13 @@
-"""Base A2A Agent implementation for Stage 3 agents.
+"""Enhanced Base A2A Agent with Comprehensive Telemetry.
 
-This module provides a base class for implementing A2A-compatible agents
-that can serve Agent Cards, handle task requests, and communicate with
-other agents.
+This module provides an enhanced base class for implementing A2A-compatible agents
+with comprehensive OpenTelemetry instrumentation for observability and monitoring.
 """
 
 import json
 import logging
 import os
+import time
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -20,13 +20,15 @@ from a2a.types import Task, TaskState, Message as A2AMessage, Part as A2APart
 from typing_extensions import override
 import asyncio
 import uuid
+
 from .discovery import DiscoveryClient, AgentConnection
+from telemetry import TelemetryManager
 
 logger = logging.getLogger(__name__)
 
 
-class BaseA2AAgent(AgentExecutor):
-    """Base class for A2A-compatible agents with SMOL agent integration."""
+class EnhancedBaseA2AAgent(AgentExecutor):
+    """Enhanced base class for A2A-compatible agents with comprehensive telemetry."""
     
     def __init__(
         self,
@@ -34,9 +36,11 @@ class BaseA2AAgent(AgentExecutor):
         agent_description: str,
         agent_card_path: str,
         smol_agent: Any = None,
-        capabilities: Optional[List[Dict[str, Any]]] = None
+        capabilities: Optional[List[Dict[str, Any]]] = None,
+        enable_telemetry: bool = True,
+        phoenix_endpoint: Optional[str] = None
     ):
-        """Initialize the A2A agent.
+        """Initialize the enhanced A2A agent.
         
         Args:
             agent_name: Name of the agent
@@ -44,12 +48,26 @@ class BaseA2AAgent(AgentExecutor):
             agent_card_path: Path to the agent's card JSON file
             smol_agent: Optional SMOL agent instance to wrap
             capabilities: Optional list of capability definitions
+            enable_telemetry: Whether to enable telemetry
+            phoenix_endpoint: Phoenix collector endpoint URL
         """
         self.agent_name = agent_name
         self.agent_description = agent_description
         self.agent_card_path = Path(agent_card_path)
         self.smol_agent = smol_agent
         self.capabilities = capabilities or []
+        self.enable_telemetry = enable_telemetry
+        
+        # Initialize telemetry if enabled
+        if self.enable_telemetry:
+            self.telemetry = TelemetryManager(
+                phoenix_endpoint=phoenix_endpoint,
+                project_name="a2a-multi-agent"
+            )
+            logger.info(f"Telemetry initialized for agent: {agent_name}")
+        else:
+            self.telemetry = None
+            logger.info(f"Telemetry disabled for agent: {agent_name}")
         
         # Load agent card
         self.agent_card = self._load_agent_card()
@@ -63,7 +81,7 @@ class BaseA2AAgent(AgentExecutor):
         self.known_agents = {}  # Cache of discovered agents
         self.active_tasks = {}  # Track active async tasks
         
-        logger.info(f"Initialized A2A agent: {self.agent_name}")
+        logger.info(f"Initialized Enhanced A2A agent: {self.agent_name}")
     
     def _load_agent_card(self) -> Dict[str, Any]:
         """Load the agent card from file."""
@@ -98,423 +116,345 @@ class BaseA2AAgent(AgentExecutor):
                 "http": f"http://{host}:{port}/agent",
                 "websocket": f"ws://{host}:{port}/ws"
             },
-            "supported_protocols": ["a2a/1.0"],
-            "metadata": {
-                "created": datetime.now().isoformat(),
-                "smol_agent": self.smol_agent is not None
-            }
         }
     
     def _register_capabilities(self):
-        """Register capability handlers.
-        
-        Subclasses should override this to register specific handlers.
-        """
-        # Default capability: get agent info
+        """Register capability handlers."""
+        # Register default capabilities
         self.register_capability("get_agent_info", self._handle_get_agent_info)
-        
-        # Discovery capabilities
         self.register_capability("discover_agents", self._handle_discover_agents)
         self.register_capability("query_agent", self._handle_query_agent)
         
-        # Register custom capabilities from agent card
-        for capability in self.agent_card.get("capabilities", []):
-            cap_name = capability.get("name")
-            if cap_name and not cap_name in self.capability_handlers:
-                # Create a handler that delegates to SMOL agent or custom method
-                self.register_capability(
-                    cap_name,
-                    lambda args, cap=capability: self._handle_capability(cap, args)
-                )
+        # Register custom capabilities
+        self.setup_custom_capabilities()
     
     def register_capability(self, name: str, handler):
-        """Register a capability handler.
-        
-        Args:
-            name: Capability name
-            handler: Function to handle the capability
-        """
+        """Register a capability handler."""
         self.capability_handlers[name] = handler
         logger.debug(f"Registered capability: {name}")
     
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
-        """Execute an A2A task request.
+        """Enhanced execute with comprehensive telemetry."""
+        start_time = time.time()
+        execution_id = str(uuid.uuid4())
         
-        This method handles incoming task requests and routes them to
-        appropriate capability handlers.
-        """
-        try:
-            logger.debug(f"Execute called with context: {context}")
-            logger.debug(f"Context type: {type(context)}")
-            logger.debug(f"Context attributes: {[attr for attr in dir(context) if not attr.startswith('_')]}")
-            
-            # Get the user message from the context
-            user_message = context.message
-            logger.debug(f"User message: {user_message}")
-            
-            if not user_message:
-                await event_queue.enqueue_event(
-                    new_agent_text_message("No user message found in task")
-                )
-                return
-            
-            # Extract text from message parts
-            text_content = ""
-            structured_content = {}
-            
-            # Debug logging
-            logger.debug(f"Message type: {type(user_message)}")
-            logger.debug(f"Message parts: {user_message.parts}")
-            
-            for i, part in enumerate(user_message.parts):
-                logger.debug(f"Part {i}: type={type(part)}")
-                
-                # Use model_dump() to get the actual content
-                if hasattr(part, 'model_dump'):
-                    part_data = part.model_dump()
-                    logger.debug(f"Part {i} data: {part_data}")
+        # Create execution span
+        if self.telemetry:
+            with self.telemetry.get_a2a_telemetry().trace_task_execution(
+                self.agent_name, execution_id, "execute"
+            ) as span:
+                try:
+                    # Extract query from context
+                    query = self._extract_query(context)
                     
-                    # Extract text or data from the dumped model
-                    if 'text' in part_data and part_data['text']:
-                        text_content = part_data['text']
-                        logger.debug(f"Found text: {text_content}")
-                    elif 'data' in part_data and part_data['data']:
-                        structured_content = part_data['data']
-                        logger.debug(f"Found data: {structured_content}")
+                    # Trace the query
+                    if self.telemetry:
+                        span.set_attribute("query.text", query)
+                        span.set_attribute("query.length", len(query))
                     
-                # Alternative: Access via root attribute
-                elif hasattr(part, 'root'):
-                    part_content = part.root
-                    logger.debug(f"Part {i} root: {part_content}")
+                    # Execute the query
+                    result = await self._execute_with_telemetry(query, context, event_queue)
                     
-                    if hasattr(part_content, 'text') and part_content.text:
-                        text_content = part_content.text
-                        logger.debug(f"Found text in root: {text_content}")
-                    elif hasattr(part_content, 'data') and part_content.data:
-                        structured_content = part_content.data
-                        logger.debug(f"Found data in root: {structured_content}")
-            
-            # Process the message
-            if text_content:
-                # Simple text query - delegate to SMOL agent if available
-                if self.smol_agent:
-                    result = await self._execute_with_smol_agent(text_content)
-                else:
-                    result = await self._handle_text_query(text_content)
-            elif structured_content:
-                # Structured message - look for capability invocation
-                result = await self._handle_structured_message(structured_content)
+                    # Record success
+                    duration = time.time() - start_time
+                    if self.telemetry:
+                        span.set_attribute("execution.status", "success")
+                        span.set_attribute("execution.duration_ms", duration * 1000)
+                        span.set_attribute("result.length", len(str(result)))
+                    
+                    # Send result
+                    await self._send_result(context, event_queue, result)
+                    
+                except Exception as e:
+                    # Record error
+                    duration = time.time() - start_time
+                    if self.telemetry:
+                        span.set_attribute("execution.status", "error")
+                        span.set_attribute("execution.error", str(e))
+                        span.set_attribute("execution.error_type", type(e).__name__)
+                        span.set_attribute("execution.duration_ms", duration * 1000)
+                    
+                    logger.error(f"Execution error: {e}")
+                    await self._send_error(context, event_queue, str(e))
+        else:
+            # Fallback without telemetry
+            try:
+                query = self._extract_query(context)
+                result = await self._execute_without_telemetry(query, context, event_queue)
+                await self._send_result(context, event_queue, result)
+            except Exception as e:
+                logger.error(f"Execution error: {e}")
+                await self._send_error(context, event_queue, str(e))
+    
+    async def _execute_with_telemetry(self, query: str, context: RequestContext, event_queue: EventQueue):
+        """Execute query with telemetry instrumentation."""
+        # Determine if this is a complex query that needs async handling
+        if self._should_use_async_task(query):
+            return await self._start_async_task(query, context, event_queue)
+        
+        # Handle structured message
+        if self._is_structured_message(query):
+            return await self._handle_structured_message_with_telemetry(query)
+        
+        # Handle text query
+        return await self._handle_text_query_with_telemetry(query)
+    
+    async def _execute_without_telemetry(self, query: str, context: RequestContext, event_queue: EventQueue):
+        """Execute query without telemetry (fallback)."""
+        if self._should_use_async_task(query):
+            return await self._start_async_task(query, context, event_queue)
+        
+        if self._is_structured_message(query):
+            return await self._handle_structured_message(query)
+        
+        return await self._handle_text_query(query)
+    
+    async def _handle_text_query_with_telemetry(self, query: str) -> str:
+        """Handle text query with telemetry."""
+        if self.telemetry:
+            with self.telemetry.get_smol_telemetry().create_agent_span(
+                self.agent_name, "text_query", query_text=query
+            ) as span:
+                try:
+                    if self.smol_agent:
+                        result = await self._execute_with_smol_agent(query)
+                    else:
+                        result = await self._handle_text_query(query)
+                    
+                    span.set_attribute("result.length", len(str(result)))
+                    return result
+                except Exception as e:
+                    span.set_attribute("error.message", str(e))
+                    span.set_attribute("error.type", type(e).__name__)
+                    raise
+        else:
+            if self.smol_agent:
+                return await self._execute_with_smol_agent(query)
             else:
-                result = "No processable content found in message"
-            
-            # Send the result
-            if isinstance(result, dict):
-                # Convert dict to JSON string for now
-                await event_queue.enqueue_event(new_agent_text_message(json.dumps(result)))
-            else:
-                await event_queue.enqueue_event(new_agent_text_message(str(result)))
-                
-        except Exception as e:
-            logger.error(f"Error in A2A execution: {e}")
-            await event_queue.enqueue_event(
-                new_agent_text_message(f"Error processing request: {str(e)}")
-            )
+                return await self._handle_text_query(query)
+    
+    async def _handle_structured_message_with_telemetry(self, content: Dict[str, Any]) -> Any:
+        """Handle structured message with telemetry."""
+        if self.telemetry:
+            with self.telemetry.get_a2a_telemetry().create_span_with_context(
+                "a2a.structured_message",
+                agent_name=self.agent_name,
+                message_type=content.get("type", "unknown")
+            ) as span:
+                try:
+                    result = await self._handle_structured_message(content)
+                    span.set_attribute("result.type", type(result).__name__)
+                    return result
+                except Exception as e:
+                    span.set_attribute("error.message", str(e))
+                    span.set_attribute("error.type", type(e).__name__)
+                    raise
+        else:
+            return await self._handle_structured_message(content)
     
     async def _execute_with_smol_agent(self, query: str) -> str:
-        """Execute a query using the wrapped SMOL agent.
-        
-        Uses appropriate timeouts based on query complexity.
-        """
-        # Check if this is a simple query we can handle quickly
-        simple_queries = ['hello', 'help', 'what can you do', 'capabilities']
-        is_simple = any(simple in query.lower() for simple in simple_queries)
-        
-        # Set timeout based on query complexity
-        timeout = 10.0 if is_simple else 50.0  # 10s for simple, 50s for complex
-        
-        try:
-            logger.info(f"Executing query with {timeout}s timeout: {query[:50]}...")
-            
-            # Check if the run method is async
-            if asyncio.iscoroutinefunction(self.smol_agent.run):
-                # If it's async, call it directly
-                result = await asyncio.wait_for(
-                    self.smol_agent.run(query),
-                    timeout=timeout
-                )
+        """Execute query using SMOL agent with telemetry."""
+        if self.telemetry:
+            with self.telemetry.get_smol_telemetry().create_agent_span(
+                self.agent_name, "smol_execution", query_text=query
+            ) as span:
+                try:
+                    # Execute with SMOL agent - handle both sync and async
+                    if hasattr(self.smol_agent, 'run'):
+                        if asyncio.iscoroutinefunction(self.smol_agent.run):
+                            # Async run method
+                            result = await self.smol_agent.run(query)
+                        else:
+                            # Sync run method - run in thread pool
+                            result = await asyncio.to_thread(self.smol_agent.run, query)
+                    else:
+                        # Fallback for agents without run method
+                        result = f"Agent {self.agent_name} executed query: {query}"
+                    
+                    span.set_attribute("result.length", len(str(result)))
+                    return result
+                except Exception as e:
+                    span.set_attribute("error.message", str(e))
+                    span.set_attribute("error.type", type(e).__name__)
+                    raise
+        else:
+            # Execute without telemetry
+            if hasattr(self.smol_agent, 'run'):
+                if asyncio.iscoroutinefunction(self.smol_agent.run):
+                    # Async run method
+                    return await self.smol_agent.run(query)
+                else:
+                    # Sync run method - run in thread pool
+                    return await asyncio.to_thread(self.smol_agent.run, query)
             else:
-                # If it's sync, run it in a thread
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(self.smol_agent.run, query),
-                    timeout=timeout
-                )
-            return result
-        except asyncio.TimeoutError:
-            logger.warning(f"Query timed out after {timeout}s: {query}")
-            return "Request timed out. Please try a simpler query."
-        except Exception as e:
-            logger.error(f"SMOL agent execution error: {e}")
-            return f"Error executing query: {str(e)}"
+                # Fallback for agents without run method
+                return f"Agent {self.agent_name} executed query: {query}"
     
     async def _handle_text_query(self, query: str) -> str:
-        """Handle a text query when no SMOL agent is available.
-        
-        Subclasses should override this method.
-        """
-        return f"{self.agent_name} received query: {query}"
+        """Handle text query (to be overridden by subclasses)."""
+        return f"Text query received: {query}"
     
     async def _handle_structured_message(self, content: Dict[str, Any]) -> Any:
-        """Handle a structured message, typically a capability invocation."""
-        # Look for capability invocation
-        capability = content.get("capability")
-        if capability and capability in self.capability_handlers:
-            args = content.get("args", {})
-            handler = self.capability_handlers[capability]
-            return await self._call_handler(handler, args)
-        
-        # If no specific capability, treat as general query
-        query = content.get("query", "")
-        if query and self.smol_agent:
-            return await self._execute_with_smol_agent(query)
-        
-        return {"error": "No recognized capability or query in message"}
+        """Handle structured message (to be overridden by subclasses)."""
+        return f"Structured message received: {content}"
     
-    async def _call_handler(self, handler, args: Dict[str, Any]) -> Any:
-        """Call a handler function, handling both sync and async."""
-        import asyncio
-        if asyncio.iscoroutinefunction(handler):
-            return await handler(args)
-        else:
-            return handler(args)
-    
-    def _handle_get_agent_info(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle get_agent_info capability."""
-        return {
-            "name": self.agent_name,
-            "description": self.agent_description,
-            "capabilities": [
-                cap["name"] for cap in self.agent_card.get("capabilities", [])
-            ],
-            "version": self.agent_card.get("version", "1.0.0")
-        }
-    
-    async def _handle_capability(self, capability: Dict[str, Any], args: Dict[str, Any]) -> Any:
-        """Generic handler for capabilities defined in agent card."""
-        cap_name = capability.get("name")
-        
-        # If we have a SMOL agent, try to use it
-        if self.smol_agent:
-            # Format the request as a natural language query
-            query_parts = [f"Please {capability.get('description', cap_name)}"]
-            for key, value in args.items():
-                query_parts.append(f"{key}: {value}")
-            query = " ".join(query_parts)
+    def _extract_query(self, context: RequestContext) -> str:
+        """Extract query from context."""
+        try:
+            # Handle A2A message structure
+            if hasattr(context, 'message') and context.message:
+                if hasattr(context.message, 'parts') and context.message.parts:
+                    parts = context.message.parts
+                    if parts and hasattr(parts[0], 'text'):
+                        return parts[0].text
+                    elif parts and hasattr(parts[0], 'model_dump'):
+                        part_data = parts[0].model_dump()
+                        if 'text' in part_data and part_data['text']:
+                            return part_data['text']
             
-            return await self._execute_with_smol_agent(query)
-        
-        # Otherwise, return a not implemented response
-        return {
-            "error": f"Capability '{cap_name}' not implemented",
-            "capability": cap_name,
-            "args": args
-        }
+            # Fallback to task content
+            if hasattr(context, 'task') and context.task:
+                if hasattr(context.task, 'content') and context.task.content:
+                    return context.task.content
+            
+            return "No query found"
+        except Exception as e:
+            logger.error(f"Error extracting query: {e}")
+            return "Error extracting query"
     
-    def get_agent_card(self) -> Dict[str, Any]:
-        """Get the agent's card."""
-        return self.agent_card
+    def _is_structured_message(self, query: str) -> bool:
+        """Check if query is a structured message."""
+        try:
+            content = json.loads(query)
+            return isinstance(content, dict)
+        except (json.JSONDecodeError, TypeError):
+            return False
+    
+    def _should_use_async_task(self, query: str) -> bool:
+        """Determine if query should use async task handling."""
+        # For now, disable async tasks to ensure synchronous responses for the UI
+        # This can be re-enabled when the UI supports polling for async task results
+        return False
+        
+        # Original logic (disabled):
+        # Simple queries that don't need async
+        # simple_queries = ["hello", "help", "ping", "status", "health"]
+        # query_lower = query.lower().strip()
+        # 
+        # if query_lower in simple_queries:
+        #     return False
+        # 
+        # # Complex queries that need async
+        # complex_indicators = [
+        #     "search", "find", "analyze", "recommend", "generate",
+        #     "complex", "detailed", "comprehensive", "thorough"
+        # ]
+        # 
+        # return any(indicator in query_lower for indicator in complex_indicators)
+    
+    async def _start_async_task(self, query: str, context: RequestContext, event_queue: EventQueue) -> str:
+        """Start async task for complex queries."""
+        task_id = str(uuid.uuid4())
+        
+        if self.telemetry:
+            with self.telemetry.get_a2a_telemetry().trace_task_execution(
+                self.agent_name, task_id, "async_task"
+            ) as span:
+                span.set_attribute("query.text", query)
+                span.set_attribute("task.id", task_id)
+                
+                # Start async processing
+                self.active_tasks[task_id] = {
+                    "query": query,
+                    "start_time": time.time(),
+                    "status": "running"
+                }
+                
+                # Process in background
+                asyncio.create_task(self._process_async_query(query, task_id, context))
+                
+                return f"Async task started with ID: {task_id}"
+        else:
+            # Fallback without telemetry
+            self.active_tasks[task_id] = {
+                "query": query,
+                "start_time": time.time(),
+                "status": "running"
+            }
+            asyncio.create_task(self._process_async_query(query, task_id, context))
+            return f"Async task started with ID: {task_id}"
+    
+    async def _process_async_query(self, query: str, task_id: str, context: RequestContext):
+        """Process async query."""
+        try:
+            if self.telemetry:
+                with self.telemetry.get_a2a_telemetry().trace_task_execution(
+                    self.agent_name, task_id, "async_processing"
+                ) as span:
+                    span.set_attribute("query.text", query)
+                    span.set_attribute("task.id", task_id)
+                    
+                    # Execute the query
+                    if self.smol_agent:
+                        result = self.smol_agent.run(query)
+                    else:
+                        result = await self._handle_text_query(query)
+                    
+                    # Update task status
+                    self.active_tasks[task_id]["status"] = "completed"
+                    self.active_tasks[task_id]["result"] = result
+                    self.active_tasks[task_id]["end_time"] = time.time()
+                    
+                    span.set_attribute("task.status", "completed")
+                    span.set_attribute("result.length", len(str(result)))
+                    
+        except Exception as e:
+            if self.telemetry:
+                with self.telemetry.get_a2a_telemetry().trace_error(
+                    self.agent_name, "async_task_error", str(e)
+                ):
+                    pass
+            
+            # Update task status
+            self.active_tasks[task_id]["status"] = "error"
+            self.active_tasks[task_id]["error"] = str(e)
+            self.active_tasks[task_id]["end_time"] = time.time()
+    
+    async def _send_result(self, context: RequestContext, event_queue: EventQueue, result: Any):
+        """Send result to event queue."""
+        # Convert result to string if it's not already a string
+        if not isinstance(result, str):
+            if isinstance(result, (list, dict)):
+                # Pretty print structured data
+                import json
+                result_str = json.dumps(result, indent=2, ensure_ascii=False)
+            else:
+                # Convert other types to string
+                result_str = str(result)
+        else:
+            result_str = result
+        
+        message = new_agent_text_message(result_str)
+        await event_queue.enqueue_event(message)
+    
+    async def _send_error(self, context: RequestContext, event_queue: EventQueue, error: str):
+        """Send error to event queue."""
+        error_message = f"Error: {error}"
+        message = new_agent_text_message(error_message)
+        await event_queue.enqueue_event(message)
     
     @override
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
-        """Cancel the current task execution.
-        
-        This method is called when a task cancellation is requested.
-        Most simple agents don't support cancellation.
-        """
-        await event_queue.enqueue_event(
-            new_agent_text_message("Task cancellation is not supported by this agent")
-        )
-    
-    def _should_use_async_task(self, query: str) -> bool:
-        """Determine if a query should be processed asynchronously.
-        
-        Args:
-            query: The user's query
-            
-        Returns:
-            True if the query should be processed as an async task
-        """
-        # Simple heuristics for now
-        simple_queries = ['hello', 'help', 'what can you do', 'capabilities', 'hi']
-        return not any(simple in query.lower() for simple in simple_queries)
-    
-    async def _start_async_task(self, query: str, context: RequestContext, event_queue: EventQueue) -> str:
-        """Start processing a query as an async task.
-        
-        Args:
-            query: The user's query
-            context: Request context
-            event_queue: Event queue for updates
-            
-        Returns:
-            Initial response indicating task creation
-        """
-        # Create a task ID
-        task_id = str(uuid.uuid4())
-        
-        # Send initial response
-        await event_queue.enqueue_event(
-            new_agent_text_message(
-                f"Your request has been received and is being processed.\n"
-                f"Task ID: {task_id}\n"
-                f"This may take a few moments..."
-            )
-        )
-        
-        # Start async processing in background
-        asyncio.create_task(self._process_async_query(query, task_id, context))
-        
-        return f"Processing started with task ID: {task_id}"
-    
-    async def _process_async_query(self, query: str, task_id: str, context: RequestContext):
-        """Process a query asynchronously in the background.
-        
-        Args:
-            query: The user's query
-            task_id: Task identifier
-            context: Request context
-        """
-        try:
-            # Check if the run method is async
-            if asyncio.iscoroutinefunction(self.smol_agent.run):
-                # If it's async, call it directly
-                result = await asyncio.wait_for(
-                    self.smol_agent.run(query),
-                    timeout=60.0  # 60 second timeout for complex queries
-                )
-            else:
-                # Run the SMOL agent in a thread with longer timeout
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(self.smol_agent.run, query),
-                    timeout=60.0  # 60 second timeout for complex queries
-                )
-            
-            # Store result in the active tasks
-            self.active_tasks[task_id] = {
-                "status": "completed",
-                "result": result,
-                "completed_at": datetime.now().isoformat()
-            }
-            
-            logger.info(f"Task {task_id} completed successfully")
-            logger.info(f"Result: {result[:200]}...")
-            
-        except asyncio.TimeoutError:
-            logger.error(f"Task {task_id} timed out after 60 seconds")
-            self.active_tasks[task_id] = {
-                "status": "failed",
-                "error": "Request timed out after 60 seconds",
-                "completed_at": datetime.now().isoformat()
-            }
-        except Exception as e:
-            logger.error(f"Task {task_id} failed: {e}")
-            self.active_tasks[task_id] = {
-                "status": "failed", 
-                "error": str(e),
-                "completed_at": datetime.now().isoformat()
-            }
-    
-    @abstractmethod
-    def setup_custom_capabilities(self):
-        """Setup custom capabilities for the specific agent.
-        
-        Subclasses must implement this to register their specific capabilities.
-        """
-        pass
-    
-    async def _handle_discover_agents(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle agent discovery requests."""
-        capability = args.get("capability")
-        refresh = args.get("refresh", False)
-        
-        if refresh:
-            self.discovery_client.clear_cache()
-        
-        # Discover agents
-        agents = await self.discovery_client.discover_agents_on_ports()
-        
-        # Cache discovered agents
-        for agent in agents:
-            name = agent.get("name")
-            if name:
-                self.known_agents[name] = agent
-        
-        # Filter by capability if requested
-        if capability:
-            agents = [
-                agent for agent in agents
-                if capability in [cap.get("name") for cap in agent.get("capabilities", [])]
-            ]
-        
-        return {
-            "agents": [
-                {
-                    "name": agent.get("name"),
-                    "description": agent.get("description"),
-                    "capabilities": [cap.get("name") for cap in agent.get("capabilities", [])],
-                    "endpoint": agent.get("_discovered_at")
-                }
-                for agent in agents
-            ],
-            "count": len(agents)
-        }
-    
-    async def _handle_query_agent(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle requests to query another agent."""
-        target_agent = args.get("agent_name")
-        query = args.get("query")
-        capability = args.get("capability")
-        capability_args = args.get("capability_args", {})
-        
-        if not target_agent:
-            return {"error": "agent_name is required"}
-        
-        if not query and not capability:
-            return {"error": "Either query or capability must be provided"}
-        
-        # Find the agent
-        agent_card = self.known_agents.get(target_agent)
-        if not agent_card:
-            # Try to discover
-            await self._handle_discover_agents({"refresh": True})
-            agent_card = self.known_agents.get(target_agent)
-        
-        if not agent_card:
-            return {"error": f"Agent '{target_agent}' not found"}
-        
-        # Connect to the agent
-        connection = AgentConnection(agent_card)
-        
-        try:
-            if capability:
-                # Invoke specific capability
-                response = await connection.invoke_capability(capability, capability_args)
-            else:
-                # Send general query
-                response = await connection.send_task(query)
-            
-            return {
-                "agent": target_agent,
-                "response": response,
-                "success": True
-            }
-        except Exception as e:
-            logger.error(f"Error querying agent {target_agent}: {e}")
-            return {
-                "error": str(e),
-                "agent": target_agent,
-                "success": False
-            }
+        """Cancel execution with telemetry."""
+        if self.telemetry:
+            with self.telemetry.get_a2a_telemetry().create_span_with_context(
+                "a2a.cancel",
+                agent_name=self.agent_name
+            ):
+                logger.info(f"Cancelling execution for agent: {self.agent_name}")
+        else:
+            logger.info(f"Cancelling execution for agent: {self.agent_name}")
     
     async def query_other_agent(
         self,
@@ -523,20 +463,118 @@ class BaseA2AAgent(AgentExecutor):
         capability: Optional[str] = None,
         capability_args: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Convenience method to query another agent.
-        
-        Args:
-            agent_name: Name of the target agent
-            query: Natural language query (if not using capability)
-            capability: Specific capability to invoke
-            capability_args: Arguments for the capability
+        """Enhanced query other agent with telemetry."""
+        if self.telemetry:
+            with self.telemetry.get_a2a_telemetry().trace_agent_communication(
+                self.agent_name, agent_name, "query"
+            ) as span:
+                try:
+                    # Discover the agent
+                    agents = await self.discovery_client.discover_agents_on_ports()
+                    target_agent = None
+                    
+                    for agent in agents:
+                        if agent.get('name') == agent_name:
+                            target_agent = agent
+                            break
+                    
+                    if not target_agent:
+                        error_msg = f"Agent {agent_name} not found"
+                        span.set_attribute("communication.status", "error")
+                        span.set_attribute("communication.error", error_msg)
+                        return {"error": error_msg}
+                    
+                    # Create connection
+                    connection = AgentConnection(target_agent)
+                    
+                    # Send query
+                    if query:
+                        response = await connection.send_task(query)
+                    elif capability:
+                        response = await connection.invoke_capability(capability, capability_args or {})
+                    else:
+                        error_msg = "No query or capability specified"
+                        span.set_attribute("communication.status", "error")
+                        span.set_attribute("communication.error", error_msg)
+                        return {"error": error_msg}
+                    
+                    # Record success
+                    span.set_attribute("communication.status", "success")
+                    span.set_attribute("response.length", len(str(response)))
+                    
+                    return response
+                    
+                except Exception as e:
+                    span.set_attribute("communication.status", "error")
+                    span.set_attribute("communication.error", str(e))
+                    raise
+        else:
+            # Fallback without telemetry
+            agents = await self.discovery_client.discover_agents_on_ports()
+            target_agent = None
             
-        Returns:
-            Response from the other agent
-        """
-        return await self._handle_query_agent({
-            "agent_name": agent_name,
-            "query": query,
-            "capability": capability,
-            "capability_args": capability_args or {}
-        })
+            for agent in agents:
+                if agent.get('name') == agent_name:
+                    target_agent = agent
+                    break
+            
+            if not target_agent:
+                return {"error": f"Agent {agent_name} not found"}
+            
+            connection = AgentConnection(target_agent)
+            
+            if query:
+                return await connection.send_task(query)
+            elif capability:
+                return await connection.invoke_capability(capability, capability_args or {})
+            else:
+                return {"error": "No query or capability specified"}
+    
+    def _handle_get_agent_info(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get agent info capability."""
+        return {
+            "name": self.agent_name,
+            "description": self.agent_description,
+            "capabilities": list(self.capability_handlers.keys()),
+            "telemetry_enabled": self.telemetry is not None
+        }
+    
+    async def _handle_discover_agents(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle discover agents capability."""
+        try:
+            agents = await self.discovery_client.discover_agents_on_ports()
+            return {
+                "agents": agents,
+                "count": len(agents)
+            }
+        except Exception as e:
+            return {"error": str(e)}
+    
+    async def _handle_query_agent(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle query agent capability."""
+        agent_name = args.get("agent_name")
+        query = args.get("query")
+        
+        if not agent_name or not query:
+            return {"error": "agent_name and query are required"}
+        
+        return await self.query_other_agent(agent_name, query=query)
+    
+    @abstractmethod
+    def setup_custom_capabilities(self):
+        """Setup custom capabilities (to be implemented by subclasses)."""
+        pass
+    
+    def get_agent_card(self) -> Dict[str, Any]:
+        """Get the agent card."""
+        return self.agent_card
+    
+    def start_performance_monitoring(self):
+        """Start performance monitoring for this agent."""
+        if self.telemetry:
+            self.telemetry.start_performance_monitoring(self.agent_name)
+    
+    def stop_performance_monitoring(self):
+        """Stop performance monitoring for this agent."""
+        if self.telemetry:
+            self.telemetry.stop_performance_monitoring() 

@@ -96,7 +96,7 @@ def get_sales_history(
     
     conn.close()
     
-    return {
+    result = {
         "period": f"Last {days} days",
         "filters": {
             "product_id": product_id,
@@ -104,13 +104,15 @@ def get_sales_history(
         },
         "summary": {
             "total_transactions": summary[0],
-            "total_units_sold": summary[1],
-            "total_revenue": round(summary[2], 2) if summary[2] else 0,
-            "average_order_value": round(summary[3], 2) if summary[3] else 0,
+            "total_units": summary[1],
+            "total_revenue": summary[2],
+            "avg_order_value": round(summary[3], 2) if summary[3] else 0,
             "unique_customers": summary[4]
         },
-        "transactions": transactions[:100]  # Limit to 100 for response size
+        "transactions": transactions
     }
+    
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -198,7 +200,7 @@ def analyze_returns(
     
     conn.close()
     
-    return {
+    result = {
         "period": f"Last {days} days",
         "filters": {
             "product_id": product_id,
@@ -214,6 +216,8 @@ def analyze_returns(
         "category_breakdown": category_stats,
         "recent_returns": returns[:50]  # Limit to 50 most recent
     }
+    
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -294,7 +298,7 @@ def calculate_revenue(
     
     conn.close()
     
-    return {
+    result = {
         "period": {
             "start_date": start_date,
             "end_date": end_date,
@@ -315,6 +319,8 @@ def calculate_revenue(
         "top_products": top_products,
         "daily_breakdown": daily_data if group_by == "day" else []
     }
+    
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -412,13 +418,15 @@ def get_trending_products(days: int = 7, min_orders: int = 5) -> str:
     
     conn.close()
     
-    return {
+    result = {
         "analysis_period": f"Last {days} days",
         "comparison_period": f"Previous {days} days",
         "min_orders_threshold": min_orders,
         "trending_count": len(trending),
         "trending_products": trending[:20]  # Top 20 trending
     }
+    
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -454,7 +462,7 @@ def get_customer_insights(customer_id: Optional[str] = None) -> str:
         result = cursor.fetchone()
         if not result:
             conn.close()
-            return {"error": f"Customer {customer_id} not found"}
+            return json.dumps({"error": f"Customer {customer_id} not found"}, indent=2)
         
         customer_data = {
             "customer_id": result[0],
@@ -491,7 +499,7 @@ def get_customer_insights(customer_id: Optional[str] = None) -> str:
         customer_data["favorite_products"] = favorite_products
         
         conn.close()
-        return customer_data
+        return json.dumps(customer_data, indent=2)
     
     else:
         # Get overall customer insights
@@ -542,7 +550,7 @@ def get_customer_insights(customer_id: Optional[str] = None) -> str:
         
         conn.close()
         
-        return {
+        result = {
             "customer_overview": {
                 "total_customers": total,
                 "active_last_30_days": active_30,
@@ -551,6 +559,8 @@ def get_customer_insights(customer_id: Optional[str] = None) -> str:
             },
             "customer_segments": customer_segments
         }
+        
+        return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -637,7 +647,7 @@ def get_sales_forecast(days_ahead: int = 7) -> str:
     
     conn.close()
     
-    return {
+    result = {
         "forecast_period": f"Next {days_ahead} days",
         "generated_at": datetime.now().isoformat(),
         "trend_factor": round(trend_factor, 3),
@@ -649,6 +659,8 @@ def get_sales_forecast(days_ahead: int = 7) -> str:
         },
         "daily_forecast": forecast
     }
+    
+    return json.dumps(result, indent=2)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,26 @@
 services:
-  # Product Agent with A2A
+  # Arize AI Phoenix
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: arize-phoenix
+    ports:
+      - "6006:6006"  # Phoenix UI
+      - "4317:4317"  # OTLP gRPC collector
+      - "4318:4318"  # OTLP HTTP collector
+    environment:
+      - PHOENIX_LOG_LEVEL=INFO
+    volumes:
+      - phoenix_data:/data
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Product Agent with Enhanced Telemetry
   product-agent:
     build:
       context: ..
@@ -16,6 +37,10 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - MCP_SERVER_PATH=/app/stage1_mcp_product_server/server_fastmcp.py
       - PYTHONUNBUFFERED=1
+      # Phoenix Telemetry Configuration
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:4317
+      - PHOENIX_PROJECT_NAME=a2a-multi-agent
+      - ENABLE_TELEMETRY=true
       # Discovery configuration for Docker
       - DISCOVERY_METHOD=docker
       - DISCOVERY_HOSTS=inventory-agent:8002,sales-agent:8003
@@ -25,6 +50,9 @@ services:
       - agent-network
     ports:
       - "8001:8001"
+    depends_on:
+      phoenix:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/.well-known/agent-card.json"]
       interval: 30s
@@ -38,7 +66,7 @@ services:
           cpus: '1'
           memory: 1G
 
-  # Inventory Agent with A2A
+  # Inventory Agent with Enhanced Telemetry
   inventory-agent:
     build:
       context: ..
@@ -56,6 +84,10 @@ services:
       - INVENTORY_MCP_PATH=/app/stage3_multi_agent/inventory_mcp/server.py
       - SALES_MCP_PATH=/app/stage3_multi_agent/sales_mcp/server.py
       - PYTHONUNBUFFERED=1
+      # Phoenix Telemetry Configuration
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:4317
+      - PHOENIX_PROJECT_NAME=a2a-multi-agent
+      - ENABLE_TELEMETRY=true
       # Discovery configuration for Docker
       - DISCOVERY_METHOD=docker
       - DISCOVERY_HOSTS=product-agent:8001,sales-agent:8003
@@ -66,6 +98,9 @@ services:
       - agent-network
     ports:
       - "8002:8002"
+    depends_on:
+      phoenix:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/.well-known/agent-card.json"]
       interval: 30s
@@ -79,7 +114,7 @@ services:
           cpus: '1'
           memory: 1G
 
-  # Sales Agent with A2A
+  # Sales Agent with Enhanced Telemetry
   sales-agent:
     build:
       context: ..
@@ -97,8 +132,11 @@ services:
       - SALES_MCP_PATH=/app/stage3_multi_agent/sales_mcp/server.py
       - INVENTORY_MCP_PATH=/app/stage3_multi_agent/inventory_mcp/server.py
       - PYTHONUNBUFFERED=1
+      # Phoenix Telemetry Configuration
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:4317
+      - PHOENIX_PROJECT_NAME=a2a-multi-agent
+      - ENABLE_TELEMETRY=true
       # Discovery configuration for Docker
-      - DISCOVERY_METHOD=docker
       - DISCOVERY_HOSTS=product-agent:8001,inventory-agent:8002
     volumes:
       - ./sales_mcp/sales.db:/app/stage3_multi_agent/sales_mcp/sales.db
@@ -107,6 +145,9 @@ services:
       - agent-network
     ports:
       - "8003:8003"
+    depends_on:
+      phoenix:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/.well-known/agent-card.json"]
       interval: 30s
@@ -119,29 +160,6 @@ services:
         limits:
           cpus: '1'
           memory: 1G
-
-  # Demo runner (optional)
-  demo:
-    build:
-      context: ..
-      dockerfile: stage3_multi_agent/demo.Dockerfile
-    container_name: a2a-demo
-    environment:
-      - PYTHONUNBUFFERED=1
-      - DISCOVERY_HOSTS=product-agent:8001,inventory-agent:8002,sales-agent:8003
-    networks:
-      - agent-network
-    depends_on:
-      product-agent:
-        condition: service_healthy
-      inventory-agent:
-        condition: service_healthy
-      sales-agent:
-        condition: service_healthy
-    stdin_open: true
-    tty: true
-    profiles:
-      - demo
 
   # Web UI Service
   web-ui:
@@ -160,9 +178,12 @@ services:
     networks:
       - agent-network
     depends_on:
-      - product-agent
-      - inventory-agent
-      - sales-agent
+      product-agent:
+        condition: service_healthy
+      inventory-agent:
+        condition: service_healthy
+      sales-agent:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
@@ -171,13 +192,9 @@ services:
       retries: 3
       start_period: 20s
 
-# Networks
+volumes:
+  phoenix_data:
+
 networks:
   agent-network:
-    driver: bridge
-
-# Volumes for persistence
-volumes:
-  product-data:
-  inventory-data:
-  sales-data:
+    driver: bridge 
