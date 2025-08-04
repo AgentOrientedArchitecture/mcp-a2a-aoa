@@ -1,16 +1,18 @@
 # Agent Oriented Architecture (AOA) Project
 
 ## Project Overview
-This project demonstrates the evolution from simple data access through MCP to a complete Agent Oriented Architecture, showcasing practical implementations of MCP, A2A protocols, and emergent agent systems.
+This project demonstrates the evolution from simple data access through MCP to a production-ready multi-agent system with complete observability, showcasing practical implementations of MCP, A2A protocols, and Phoenix telemetry.
+
+**GitHub Repository**: https://github.com/AgentOrientedArchitecture/mcp-a2a-aoa
 
 ## Environment & Tools
 - **Python**: 3.12
 - **Package Manager**: uv (NOT pip, poetry, or conda)
 - **MCP Server**: Context7 enabled for real-time documentation
 - **Container**: Docker for agent deployment (from Stage 2 onwards)
+- **Observability**: Arize AI Phoenix for telemetry (Stage 3)
 - **Working Directory**: `/home/lewis/work/AOA`
-- **Default LLM Model**: claude-3-7-sonnet-20250219
-- **Default LLM Model**: claude-3-7-sonnet-20250219
+- **Default LLM Model**: claude-3-5-haiku-20241022
 
 ## Development Philosophy
 - **Use existing frameworks and SDKs** - Never reinvent the wheel
@@ -32,16 +34,17 @@ uv run <command>            # Run commands in project environment
 ## Core Dependencies
 ```bash
 # Stage 1: MCP Foundation
-uv add mcp sqlite3
+uv add mcp fastmcp sqlite3
 
 # Stage 2: SMOL Agents
 uv add "smolagents[all]"
 
-# Stage 3: A2A Protocol
+# Stage 3: A2A Protocol + Phoenix Telemetry
 uv add a2a-sdk
-
-# Stage 4: AOA Foundation
-# A2A SDK already added in Stage 3
+uv add arize-phoenix-otel
+uv add openinference-instrumentation-smolagents
+uv add openinference-instrumentation-openai
+uv add openinference-instrumentation-anthropic
 
 # Development tools
 uv add --dev pytest pytest-asyncio ruff black mypy
@@ -51,12 +54,14 @@ uv add --dev pytest pytest-asyncio ruff black mypy
 ```
 /home/lewis/work/AOA/
 ├── README.md
+├── CLAUDE.md (this file)
 ├── pyproject.toml
 ├── uv.lock
-├── claude.md (this file)
+├── aoa-blog-plan.md
 ├── stage1_mcp_product_server/
 │   ├── __init__.py
 │   ├── server.py           # MCP server implementation
+│   ├── server_fastmcp.py   # FastMCP version
 │   ├── database.py         # SQLite initialization
 │   ├── product_catalog.db  # SQLite database
 │   └── tests/
@@ -65,29 +70,22 @@ uv add --dev pytest pytest-asyncio ruff black mypy
 │   ├── agent.py            # SMOL agent implementation
 │   ├── Dockerfile
 │   └── tests/
-├── stage3_multi_agent/
-│   ├── inventory_mcp/
-│   ├── sales_mcp/
-│   ├── agents/
-│   ├── agent_cards/
-│   ├── docker-compose.yml
+├── stage3_multi_agent/      # Complete production system
+│   ├── a2a_protocol/       # A2A implementation
+│   ├── agents/             # Three specialized agents
+│   ├── telemetry/          # Phoenix observability
+│   ├── web-ui/             # React/TypeScript UI
+│   ├── inventory_mcp/      # Inventory data layer
+│   ├── sales_mcp/          # Sales data layer
+│   ├── agent_cards/        # Agent discovery cards
+│   ├── docker-compose.yml  # Full system orchestration
+│   ├── deploy_with_telemetry.sh  # One-command deployment
 │   └── tests/
-├── stage4_a2a_discovery/
-│   ├── crm_mcp/
-│   ├── agent_registry/
-│   ├── orchestrator/
-│   └── tests/
-├── stage5_aoa_complete/
-│   ├── orchestrator/
-│   ├── specialized_agents/
-│   ├── docker-compose.yml
-│   └── demonstrations/
 └── blog_posts/
     ├── stage1_mcp_foundation.md
     ├── stage2_smol_agents.md
-    ├── stage3_a2a_discovery.md
-    ├── stage4_aoa_foundation.md
-    └── stage5_aoa_complete.md
+    ├── stage3_multi_agent_observability.md
+    └── stage4_aoa_vision.md   # Future vision
 ```
 
 ## MCP Server Development Guidelines
@@ -207,9 +205,10 @@ uv run mypy .
 1. **Always use uv** for package management, not pip
 2. **Consult Context7** for library usage patterns
 3. **Follow SDK examples** rather than creating custom implementations
-4. **Test with Claude Desktop** for MCP servers
+4. **Test with Claude Desktop** for MCP servers (Stage 1)
 5. **Use Docker** for all agents after Stage 1
-6. **Document everything** in blog posts with working examples
+6. **Enable Phoenix telemetry** for production deployments (Stage 3)
+7. **Document concepts** in blog posts, link to GitHub for code
 
 ## Security Considerations
 - Never commit `.env` files or secrets
