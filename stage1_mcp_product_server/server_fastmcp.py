@@ -7,7 +7,7 @@ implementation and better Claude Desktop compatibility.
 
 import json
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from mcp.server.fastmcp import FastMCP
 
@@ -74,8 +74,8 @@ def query_products(query: str) -> str:
 def search_products(
     search_term: str,
     category: Optional[str] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
+    min_price: Optional[Union[float, str]] = None,
+    max_price: Optional[Union[float, str]] = None,
     in_stock_only: bool = False,
 ) -> str:
     """Search for products by name, category, or brand.
@@ -91,6 +91,22 @@ def search_products(
         JSON string with search results
     """
     try:
+        # Handle string parameters by converting to appropriate types
+        if isinstance(min_price, str):
+            if min_price == "":
+                min_price = None
+            else:
+                min_price = float(min_price)
+                
+        if isinstance(max_price, str):
+            if max_price == "":
+                max_price = None
+            else:
+                max_price = float(max_price)
+                
+        if category == "":
+            category = None
+            
         # Build query
         query = """
             SELECT * FROM products 
