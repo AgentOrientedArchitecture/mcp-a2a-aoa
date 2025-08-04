@@ -1,30 +1,48 @@
-# Stage 2: Product Catalog Agent with SMOL Agents
+# Stage 2: Product Catalog Agent - Dual Framework Implementation
 
-An intelligent agent that adds business intelligence and natural language understanding on top of the MCP server from Stage 1. Built with HuggingFace's SMOL Agents framework.
+An intelligent agent that adds business intelligence and natural language understanding on top of the MCP server from Stage 1. Now supports both **SMOL Agents** and **Agno** frameworks for comparison and evaluation.
 
-## Key Innovation: SMOL Agents MCP Integration
+## Key Innovation: Dual Framework Architecture
 
-This stage demonstrates the power of SMOL agents' native MCP support:
-- **Direct MCP Tool Access**: SMOL agents automatically discovers and uses MCP tools
-- **Seamless Integration**: MCPClient handles all stdio communication with the MCP server
-- **Tool Composition**: Business intelligence tools can access MCP tools directly
-- **No Custom Wrappers**: Clean, maintainable code using framework features
+This stage demonstrates the power of both agent frameworks:
+- **SMOL Agents**: HuggingFace's lightweight agent framework with native MCP support
+- **Agno Framework**: Advanced reasoning capabilities with native MCP integration via MCPTools
+- **Side-by-Side Comparison**: Run both agents to evaluate capabilities
+- **Benchmark Testing**: Systematic comparison of performance and reasoning quality
+
+## Framework Comparison
+
+| Feature | SMOL Agents | Agno Framework |
+|---------|-------------|----------------|
+| **MCP Integration** | ✅ Native support | ✅ Native MCPTools |
+| **Reasoning** | Basic tool calling | ✅ Advanced chain-of-thought |
+| **Explainability** | Standard output | ✅ Full reasoning display |
+| **Performance** | Fast, lightweight | More detailed processing |
+| **Memory** | Basic context | ✅ Advanced memory management |
+| **Tool Analysis** | Direct execution | ✅ Result analysis and iteration |
 
 ## Features
 
-### Core Capabilities
+### Core Capabilities (Both Frameworks)
 - **Natural Language Understanding**: Convert complex queries into structured searches
 - **Price Analysis**: Analyze price trends, identify outliers, and provide insights
 - **Smart Recommendations**: Generate personalized product recommendations
 - **Similar Products**: Find products similar to a reference item
 - **Customer Insights**: Learn from purchase history to improve recommendations
 
-### Technical Features
-- **Native MCP Integration**: Uses SMOL agents' built-in MCPClient
-- **SMOL Agents**: Leverages HuggingFace's agent framework
-- **LLM Flexibility**: Supports Claude, GPT-4, and other models via LiteLLM
-- **Docker Ready**: Containerized for easy deployment
-- **Clean Architecture**: No custom wrappers needed
+### SMOL Agents Features
+- **Native MCP Integration**: Direct tool discovery and usage
+- **Lightweight**: Fast response times
+- **Simple Architecture**: Easy to understand and extend
+
+### Agno Framework Features
+- **Native MCP Integration**: Built-in MCPTools for seamless MCP server connection
+- **Advanced Reasoning**: Chain-of-thought reasoning with `reasoning=True`
+- **Enhanced Explainability**: `show_full_reasoning=True` for detailed output
+- **Tool Analysis**: Can analyze tool results and iterate on solutions
+- **Memory Management**: Built-in memory capabilities for context retention
+- **Multi-Model Support**: Different models for reasoning vs. response
+- **Async Context Management**: Proper connection lifecycle with MCP servers
 
 ## Quick Start
 
@@ -52,12 +70,23 @@ cp stage2_product_agent/.env.example stage2_product_agent/.env
 uv sync
 ```
 
-### Running the Agent
+### Running the Agents
 
 #### Interactive Mode (Development)
-Run from the AOA root directory:
+
+**Run SMOL Agent:**
 ```bash
 uv run python stage2_product_agent/agent.py
+```
+
+**Run Agno Agent:**
+```bash
+uv run python stage2_product_agent/agno_agent.py
+```
+
+**Run Dual Agent Comparison:**
+```bash
+uv run python stage2_product_agent/dual_agent_runner.py
 ```
 
 #### Docker Mode (Production)
@@ -77,166 +106,155 @@ For interactive mode, you must use `docker compose run`:
 docker compose run --rm product-agent
 ```
 
-You'll see the startup message and can interact directly:
-```
-============================================================
-Product Catalog Agent - Stage 2
-Intelligent Assistant for Product Queries
-============================================================
+### Configuration
 
-✅ Agent 'Product Catalog Assistant' initialized successfully!
-
-Available capabilities:
-- Natural language product search
-- Price trend analysis
-- Similar product recommendations
-- Personalized recommendations
-- Database queries
-
-Type 'quit' to exit.
-
-You: Show me all laptops under $1000
-Agent: [Agent responds with search results]
-
-You: What are the price trends for electronics?
-Agent: [Agent provides price analysis]
-
-You: quit
-Goodbye! 👋
-```
-
-3. **Why not `docker compose up`?**
-
-`docker compose up` is designed for services that run in the background. For interactive applications, use:
-- `docker compose run --rm product-agent` - Best for interactive sessions
-- `docker compose exec` - To connect to an already running container
-
-4. **Alternative methods**:
+The `.env` file controls which framework to use:
 
 ```bash
-# Run with custom environment variables
-docker compose run --rm -e LOG_LEVEL=DEBUG product-agent
+# Agent Framework Selection
+# Options: smol, agno, both (for comparison)
+AGENT_FRAMEWORK=both
 
-# Run without removing container after exit
-docker compose run product-agent
-
-# If you need to run as a service and attach later
-docker compose up -d
-docker attach product-catalog-agent
+# Agno-specific Configuration
+AGNO_REASONING=true
+AGNO_SHOW_FULL_REASONING=true
+AGNO_MARKDOWN=true
+AGNO_DEBUG_MODE=false
 ```
 
-5. **View logs** (if running as service):
+## Testing Examples
+
+### Basic Product Search
 ```bash
-docker compose logs -f product-agent
+# Test SMOL agent
+uv run python stage2_product_agent/agent.py
+> Show me all electronics products
+
+# Test Agno agent  
+uv run python stage2_product_agent/agno_agent.py
+> Show me all electronics products
 ```
 
-6. **Clean up**:
+### Price Analysis
 ```bash
-# Remove stopped containers
-docker compose down
-
-# Remove with volumes
-docker compose down -v
+# Test price range queries
+> Find products under $1000
+> Show me the most expensive electronics
+> What's the average price of laptops?
 ```
 
-## Usage Examples
-
-### Natural Language Queries
+### Category Analysis
+```bash
+# Test category-specific queries
+> Show me all gaming consoles
+> What clothing items are in stock?
+> List all home & garden products
 ```
-You: Show me laptops under $1000 that are in stock
-Agent: [Searches for laptops with price < 1000 and in_stock_only=true]
 
-You: What are the price trends for electronics?
-Agent: [Analyzes price statistics, identifies outliers, provides insights]
-
-You: Find products similar to product ID 42
-Agent: [Finds products with similar characteristics and ranks by similarity]
+### Complex Queries
+```bash
+# Test multi-criteria searches
+> Find electronics with 4+ star rating under $1500
+> Show me in-stock laptops from DigitalPro brand
+> What are the best-rated products in each category?
 ```
 
 ### Business Intelligence
-```
-You: Generate recommendations for a customer who likes premium electronics
-Agent: [Creates personalized recommendations based on preferences]
-
-You: Analyze the pricing strategy for our sports category
-Agent: [Provides detailed price analysis with quartiles, outliers, and insights]
-```
-
-## Architecture
-
-```
-┌─────────────────┐     Natural Language      ┌─────────────────┐
-│      User       │ ◄───────────────────────► │  Product Agent  │
-└─────────────────┘                           └─────────────────┘
-                                                       │
-                                              ┌────────┴────────┐
-                                              │                 │
-                                    Business Intelligence     MCP Tools
-                                         Tools               (Auto-discovered)
-                                              │                 │
-                                              └────────┬────────┘
-                                                       │
-                                              ┌─────────────────┐
-                                              │   MCPClient     │
-                                              │  (SMOL Native)  │
-                                              └─────────────────┘
-                                                       │
-                                                    stdio
-                                                       │
-                                                       ▼
-                                              ┌─────────────────┐
-                                              │   MCP Server    │
-                                              │   (Stage 1)     │
-                                              └─────────────────┘
-                                                       │
-                                                       ▼
-                                              ┌─────────────────┐
-                                              │     SQLite      │
-                                              │    Database     │
-                                              └─────────────────┘
+```bash
+# Test analytical queries
+> Which brands have the most products?
+> What's the price distribution in electronics?
+> Show me products with limited stock
 ```
 
-### How SMOL Agents MCP Integration Works
+## Agent Comparison Examples
 
-1. **Automatic Tool Discovery**: MCPClient connects to the MCP server and discovers all available tools
-2. **Tool Registration**: Both MCP tools and custom business tools are registered with the SMOL agent
-3. **Unified Interface**: The agent can seamlessly use both types of tools in response to queries
-4. **Tool Composition**: Business intelligence tools receive MCP tools as dependencies and can call them directly
+### SMOL Agent Response
+```
+You: Show me laptops under $1000
 
-### Code Simplification with SMOL Agents
+Agent: I'll search for laptops under $1000 for you.
 
-The SMOL agents framework dramatically simplifies MCP integration:
+[Tool: search_products]
+Query: laptops under $1000
+Results: Found 2 laptops under $1000
 
+Here are the laptops under $1000:
+1. SmartLife Laptop Plus - $1165.72 (above budget)
+2. FutureTech Laptop - $1347.95 (above budget)
+
+Note: No laptops found under $1000 in the current catalog.
+```
+
+### Agno Agent Response
+```
+You: Show me laptops under $1000
+
+Agent: Let me think about this step by step.
+
+**Reasoning Process:**
+1. The user wants laptops under $1000
+2. I need to search the product catalog for laptops
+3. I should filter by price range and category
+4. I'll use the search_products MCP tool to find relevant items
+
+[Tool: search_products]
+Query: laptops under $1000
+Results: Found 2 laptops, but both are above $1000
+
+**Analysis:**
+I found 2 laptops in the catalog, but unfortunately both exceed the $1000 budget:
+- SmartLife Laptop Plus: $1165.72
+- FutureTech Laptop: $1347.95
+
+**Recommendations:**
+Based on the search results, there are no laptops under $1000 in the current catalog. However, I can suggest:
+
+1. **Consider alternatives**: Look at other electronics categories that might fit your budget
+2. **Check for sales**: Monitor for price drops on existing laptops
+3. **Expand search**: Consider refurbished or older model options
+
+The price distribution shows that laptops in this catalog start at $1165.72.
+```
+
+## MCP Integration Details
+
+### SMOL Agents MCP Integration
 ```python
-# Initialize MCP client - that's it!
+# SMOL agents have native MCP support
+from smolagents import MCPClient
+
+# Automatic tool discovery and registration
 self.mcp_client = MCPClient(self.server_params)
 self.mcp_tools = self.mcp_client.get_tools()
+```
 
-# Create business tools that use MCP tools
-mcp_tools_dict = {tool.name: tool for tool in self.mcp_tools}
-business_tools = [
-    FindSimilarProductsTool(mcp_tools_dict),
-    AnalyzePriceTrendsTool(mcp_tools_dict),
-    # ...
-]
+### Agno Framework MCP Integration
+```python
+# Agno uses MCPTools for native MCP integration
+from agno.tools.mcp import MCPTools
+from mcp import StdioServerParameters
 
-# Register all tools with the agent
-self.agent = CodeAgent(
-    tools=list(self.mcp_tools) + business_tools,
-    model=self.model,
-    # ...
+# Set up server parameters
+server_params = StdioServerParameters(
+    command=sys.executable,
+    args=[str(mcp_server_path)],
+    env={**os.environ}
+)
+
+# Agno handles all MCP integration automatically
+self.mcp_tools = MCPTools(server_params=server_params)
+
+# Tools are automatically available to the agent
+agent = Agent(
+    tools=[self.mcp_tools],
+    reasoning=True,
+    show_full_reasoning=True
 )
 ```
 
-No need for:
-- Custom MCP wrappers
-- Manual tool conversion
-- Complex communication handling
-- Tool adapter patterns
-
-## Tools Reference
-
-### MCP Tools (from Stage 1)
+### Available MCP Tools (Both Frameworks)
+Both agents have access to the same MCP tools from Stage 1:
 - `get_schema`: Database schema information
 - `query_products`: SQL query execution
 - `search_products`: Product search with filters
@@ -244,170 +262,252 @@ No need for:
 - `get_categories`: Category statistics
 - `get_price_range`: Price range information
 
-### Business Intelligence Tools (Stage 2)
-- `find_similar_products`: Find products similar to a reference
-- `analyze_price_trends`: Comprehensive price analysis
-- `generate_product_recommendations`: Personalized recommendations
-- `natural_language_product_search`: NL query parsing
+## Testing and Validation
 
-## Configuration
-
-### Environment Variables
+### Quick Tests
 ```bash
-# LLM Configuration
-LLM_MODEL=claude-3-7-sonnet-20250219  # or gpt-4, etc.
-ANTHROPIC_API_KEY=your-key-here        # or OPENAI_API_KEY
+# Test basic setup
+uv run python stage2_product_agent/tests/test_agno_agent.py
+uv run python stage2_product_agent/tests/test_dual_runner.py
 
-# Agent Configuration
-AGENT_NAME="Product Catalog Assistant"
-LOG_LEVEL=INFO
+# Test MCP integration
+uv run python stage2_product_agent/tests/test_mcp_integration.py
 
-# MCP Server Path (relative to AOA directory)
-MCP_SERVER_PATH="stage1_mcp_product_server/server_fastmcp.py"
+# Debug specific issues
+uv run python stage2_product_agent/tests/debug_agno.py
 ```
 
-### Docker Configuration
+### Expected Test Results
+Both agents should return **real data** from the database:
+- ✅ Electronics products with actual prices ($270-$2000 range)
+- ✅ Real brands (DigitalPro, TechCorp, SmartLife, etc.)
+- ✅ Actual ratings and stock status
+- ✅ No fictional or made-up data
 
-#### Docker Compose Setup
-The `docker-compose.yml` file provides production-ready configuration:
+### Verification Commands
+```bash
+# Verify both agents work
+uv run python stage2_product_agent/tests/test_mcp_integration.py
 
-```yaml
-services:
-  product-agent:
-    build:
-      context: ..  # Builds from parent directory to include stage1
-      dockerfile: stage2_product_agent/Dockerfile
-    environment:
-      - MCP_SERVER_PATH=/app/stage1_mcp_product_server/server_fastmcp.py
-    env_file:
-      - .env  # Load API keys and config
-    stdin_open: true  # Interactive mode
-    tty: true
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
+# Test specific queries
+echo "Show me all electronics" | uv run python stage2_product_agent/agent.py
+echo "Show me all electronics" | uv run python stage2_product_agent/agno_agent.py
 ```
 
-#### Key Features:
-- **Multi-stage build**: Optimized image size
-- **Resource limits**: Prevents runaway resource usage
-- **Volume persistence**: Data survives container restarts
-- **Network isolation**: Secure by default
-- **Interactive mode**: Full agent interaction support
+## Benchmark Testing
 
-#### Docker Commands Reference:
+Run systematic comparison tests:
+
 ```bash
-# Build without cache
-docker compose build --no-cache
+# Run benchmark comparison
+uv run python stage2_product_agent/tests/benchmark.py
+```
 
-# Run with live logs
-docker compose up
+The benchmark tests:
+- **Basic Search**: Simple product queries
+- **Complex Search**: Multi-criteria filtering
+- **Price Analysis**: Statistical analysis
+- **Recommendations**: Personalized suggestions
+- **Data Analysis**: Category comparisons
+- **Similar Products**: Feature-based matching
+- **Business Intelligence**: Strategic insights
+- **Natural Language**: Intent understanding
+- **Reasoning**: Complex problem solving
+- **Explainability**: Detailed reasoning display
 
-# Run specific number of instances
-docker compose up --scale product-agent=3
+## Architecture
 
-# Execute commands in running container
-docker compose exec product-agent python -c "print('test')"
+### SMOL Agent Architecture
+```
+User Query → SMOL Agent → MCP Tools → Database
+                ↓
+            LLM Processing
+                ↓
+            Direct Response
+```
 
-# View resource usage
-docker compose stats
+### Agno Agent Architecture
+```
+User Query → Agno Agent → Reasoning Process → MCPTools → MCP Server → Database
+                ↓                    ↓
+            LLM Processing    Tool Result Analysis
+                ↓                    ↓
+            Iterative Refinement → Final Response
+```
+
+### Dual Agent Comparison
+```
+User Query → Dual Agent Runner
+                ↓
+        ┌─────────────┬─────────────┐
+        ↓             ↓             ↓
+    SMOL Agent   Agno Agent   Comparison
+        ↓             ↓             ↓
+    Direct      Reasoning      Side-by-Side
+   Response     Process        Analysis
 ```
 
 ## Development
 
-### Running Tests (from AOA directory)
+### Running Tests
 ```bash
-# All tests
+# Test Agno agent setup
+uv run python stage2_product_agent/tests/test_agno_agent.py
+
+# Test dual agent runner
+uv run python stage2_product_agent/tests/test_dual_runner.py
+
+# Test MCP integration
+uv run python stage2_product_agent/tests/test_mcp_integration.py
+
+# Run all tests
 uv run pytest stage2_product_agent/tests/
-
-# Specific test file
-uv run pytest stage2_product_agent/tests/test_agent.py -v
-
-# With coverage
-uv run pytest stage2_product_agent/tests/ --cov=stage2_product_agent
 ```
 
-### Code Quality (from AOA directory)
+### Code Quality
 ```bash
-# Format code
+# Format
 uv run black stage2_product_agent/
 
 # Lint
 uv run ruff check stage2_product_agent/
 
-# Type checking
+# Type check
 uv run mypy stage2_product_agent/
 ```
 
-## Project Structure
-```
-stage2_product_agent/
-├── __init__.py
-├── agent.py                  # Main agent implementation
-├── tools/
-│   ├── __init__.py
-│   └── product_tools.py     # Business intelligence tools
-├── tests/
-│   ├── __init__.py
-│   ├── test_agent.py
-│   └── test_product_tools.py
-├── Dockerfile               # Container configuration
-├── docker-compose.yml       # Orchestration
-├── .env.example            # Environment template
-└── README.md
-```
+## Framework Selection Guide
+
+### Choose SMOL Agents when:
+- You need fast, lightweight responses
+- Simple tool calling is sufficient
+- You want minimal resource usage
+- Native MCP integration is priority
+
+### Choose Agno Framework when:
+- You need advanced reasoning capabilities
+- Detailed explainability is important
+- Complex problem-solving is required
+- Tool result analysis is needed
+- Memory and context retention is important
+- You want to leverage MCPTools for seamless MCP integration
+
+### Use Both for:
+- Framework comparison and evaluation
+- Understanding strengths of each approach
+- Making informed decisions for Stage 3
+- Learning different agent patterns
+
+## Performance Considerations
+
+### SMOL Agents
+- **Pros**: Fast response times, low resource usage, native MCP support
+- **Cons**: Limited reasoning depth, basic explainability
+
+### Agno Framework
+- **Pros**: Advanced reasoning, detailed explanations, native MCPTools integration
+- **Cons**: Slower response times, higher resource usage
+
+## MCP Integration Comparison
+
+### SMOL Agents MCP Integration
+- **Native Support**: Built-in MCPClient
+- **Tool Discovery**: Automatic tool registration
+- **Communication**: Stdio transport
+- **Complexity**: Simple, direct integration
+
+### Agno Framework MCP Integration
+- **Native Support**: MCPTools class
+- **Tool Discovery**: Automatic via MCPTools
+- **Communication**: Multiple transport support (stdio, HTTP, SSE)
+- **Complexity**: Advanced with async context management
+- **Features**: Connection lifecycle management, multi-server support
+
+## Next Steps
+
+This dual-agent implementation provides the foundation for:
+1. **Framework Evaluation**: Systematic comparison of capabilities
+2. **Stage 3 Decision**: Informed choice for A2A protocol implementation
+3. **Hybrid Approaches**: Combining strengths of both frameworks
+4. **Performance Optimization**: Understanding trade-offs and optimization opportunities
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"No API key found" error**
-   - Ensure you've created `.env` from `.env.example`
-   - Add your ANTHROPIC_API_KEY or OPENAI_API_KEY
+**Agno agent fails to initialize:**
+- Check API key configuration in `.env`
+- Verify MCP server path is correct
+- Ensure all dependencies are installed
+- Check that MCPTools can connect to the server
 
-2. **"MCP server not found" error**
-   - Make sure you're running from the AOA directory: `cd /path/to/AOA`
-   - Check that Stage 1 is properly set up
-   - Verify the MCP_SERVER_PATH in your .env
-   - Default path assumes: `AOA/stage1_mcp_product_server/server_fastmcp.py`
+**SMOL agent not responding:**
+- Verify MCP server is running
+- Check tool discovery and registration
+- Review agent configuration
 
-3. **Docker build fails**
-   - Ensure you're building from the stage2_product_agent directory
-   - Check that both stage1 and stage2 directories exist
-   - Verify Docker has access to the parent directory
+**Dual agent comparison fails:**
+- Ensure both agents can be initialized
+- Check environment configuration
+- Verify API keys are set correctly
 
-4. **Can't interact with Docker container**
-   - Use `docker compose run --rm product-agent` for interactive mode
-   - Do NOT use `docker compose up` for interactive sessions
-   - Check that `stdin_open: true` and `tty: true` are in docker-compose.yml
-   - On Windows, you may need to use `winpty docker compose run --rm product-agent`
-   - Ensure PYTHONUNBUFFERED=1 is set in the environment
+**MCP connection issues:**
+- Verify MCP server is accessible
+- Check server parameters in agent configuration
+- Ensure proper async context management for Agno
 
-5. **Container exits immediately**
-   - Check logs: `docker compose logs product-agent`
-   - Verify .env file is in the stage2_product_agent directory
-   - Ensure API keys are valid
-
-6. **Running from wrong directory**
-   - Docker commands should be run from stage2_product_agent directory
-   - Python commands should be run from the AOA root directory
-   - Use absolute paths in .env if running from elsewhere
+**Agents returning fictional data:**
+- Ensure MCP tools are properly connected
+- Check that agents are using real database queries
+- Verify tool discovery is working
 
 ### Debug Mode
-Enable detailed logging:
+
+Enable debug mode for Agno agent:
 ```bash
-LOG_LEVEL=DEBUG uv run python stage2_product_agent/agent.py
+AGNO_DEBUG_MODE=true
 ```
 
-## Next Steps
+This will show detailed tool calls and reasoning processes.
 
-This agent demonstrates how SMOL Agents add intelligence to basic data access. In Stage 3, we'll:
-- Add multiple data sources (inventory, sales)
-- Implement multi-agent coordination with ACP
-- Enable cross-domain queries
+### MCP Connection Debugging
 
-## License
+For Agno MCP issues:
+```python
+# Test MCP connection directly
+from agno.tools.mcp import MCPTools
+from mcp import StdioServerParameters
 
-MIT License - See parent project for details.
+server_params = StdioServerParameters(
+    command="python",
+    args=["stage1_mcp_product_server/server_fastmcp.py"],
+    env={**os.environ}
+)
+
+async with MCPTools(server_params=server_params) as mcp_tools:
+    # Test connection
+    print("MCP tools available:", len(mcp_tools.tools))
+```
+
+### Verification Tests
+```bash
+# Test that agents return real data
+uv run python stage2_product_agent/tests/test_mcp_integration.py
+
+# Test specific queries
+echo "Show me electronics under $1000" | uv run python stage2_product_agent/agent.py
+echo "Show me electronics under $1000" | uv run python stage2_product_agent/agno_agent.py
+```
+
+## Contributing
+
+When adding new features:
+1. Implement for both frameworks when possible
+2. Add corresponding tests
+3. Update benchmark queries
+4. Document differences in behavior
+5. Test MCP integration for both frameworks
+
+---
+
+This dual-agent implementation demonstrates the evolution from simple tool calling to advanced reasoning capabilities, with both frameworks providing native MCP integration for seamless data access and analysis. **Both agents now successfully use real MCP data from the product catalog database.**
